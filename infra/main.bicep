@@ -1,4 +1,4 @@
-targetScope = 'subscription'
+targetScope = 'resourceGroup'
 
 @minLength(1)
 @maxLength(64)
@@ -20,7 +20,7 @@ param apiUserAssignedIdentityName string = ''
 param applicationInsightsName string = ''
 param appServicePlanName string = ''
 param logAnalyticsName string = ''
-param resourceGroupName string = 'CHANGEME'
+param resourceGroupName string = ''
 param storageAccountName string = ''
 param vNetName string = ''
 param disableLocalAuth bool = true
@@ -51,34 +51,16 @@ var chatGpt = {
 param principalId string = ''
 
 var abbrs = loadJsonContent('./abbreviations.json')
-var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
+var resourceToken = toLower(uniqueString(resourceGroup().id, environmentName, location))
 var tags = { 'azd-env-name': environmentName }
 var functionAppName = !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesFunctions}api-${resourceToken}'
 var deploymentStorageContainerName = 'app-package-${take(functionAppName, 32)}-${take(toLower(uniqueString(functionAppName, resourceToken)), 7)}'
 
-// Reference existing resource group if name provided, otherwise create new one
-resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(resourceGroupName)) {
-  name: resourceGroupName
-}
-
-// Create new resource group if no name provided
-resource newRg 'Microsoft.Resources/resourceGroups@2021-04-01' = if (empty(resourceGroupName)) {
-  name: '${abbrs.resourcesResourceGroups}${environmentName}'
-  location: location
-  tags: tags
-}
-
-// // Organize resources in a resource group
-// resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-//   name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
-//   location: location
-//   tags: tags
-// }
 
 // User assigned managed identity to be used by the function app to reach storage and service bus
 module apiUserAssignedIdentity './core/identity/userAssignedIdentity.bicep' = {
   name: 'apiUserAssignedIdentity'
-  scope: rg
+  
   params: {
     location: location
     tags: tags
@@ -89,7 +71,7 @@ module apiUserAssignedIdentity './core/identity/userAssignedIdentity.bicep' = {
 // The application backend is a function app
 module appServicePlan './core/host/appserviceplan.bicep' = {
   name: 'appserviceplan'
-  scope: rg
+  
   params: {
     name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
     location: location
@@ -103,7 +85,7 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
 
 module api './app/api.bicep' = {
   name: 'api'
-  scope: rg
+  
   params: {
     name: functionAppName
     location: location
@@ -127,7 +109,7 @@ module api './app/api.bicep' = {
 
 module ai 'core/ai/openai.bicep' = {
   name: 'openai'
-  scope: rg
+  
   params: {
     name: !empty(openAiServiceName) ? openAiServiceName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
     location: location
@@ -156,7 +138,7 @@ module ai 'core/ai/openai.bicep' = {
 // Backing storage for Azure functions backend processor
 module storage 'core/storage/storage-account.bicep' = {
   name: 'storage'
-  scope: rg
+  
   params: {
     name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${resourceToken}'
     location: location
@@ -175,7 +157,7 @@ var storageRoleDefinitionId  = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b' // Storage
 // Allow access from api to storage account using a managed identity
 module storageRoleAssignmentApi 'app/storage-Access.bicep' = {
   name: 'storageRoleAssignmentapi'
-  scope: rg
+  
   params: {
     storageAccountName: storage.outputs.name
     roleDefinitionID: storageRoleDefinitionId
@@ -186,7 +168,7 @@ module storageRoleAssignmentApi 'app/storage-Access.bicep' = {
 
 module storageRoleAssignmentUserIdentityApi 'app/storage-Access.bicep' = {
   name: 'storageRoleAssignmentUserIdentityApi'
-  scope: rg
+  
   params: {
     storageAccountName: storage.outputs.name
     roleDefinitionID: storageRoleDefinitionId
@@ -199,7 +181,7 @@ var storageQueueDataContributorRoleDefinitionId  = '974c5e8b-45b9-4653-ba55-5f85
 
 module storageQueueDataContributorRoleAssignmentprocessor 'app/storage-Access.bicep' = {
   name: 'storageQueueDataContributorRoleAssignmentprocessor'
-  scope: rg
+  
   params: {
     storageAccountName: storage.outputs.name
     roleDefinitionID: storageQueueDataContributorRoleDefinitionId
@@ -210,7 +192,7 @@ module storageQueueDataContributorRoleAssignmentprocessor 'app/storage-Access.bi
 
 module storageQueueDataContributorRoleAssignmentUserIdentityprocessor 'app/storage-Access.bicep' = {
   name: 'storageQueueDataContributorRoleAssignmentUserIdentityprocessor'
-  scope: rg
+  
   params: {
     storageAccountName: storage.outputs.name
     roleDefinitionID: storageQueueDataContributorRoleDefinitionId
@@ -223,7 +205,7 @@ var storageTableDataContributorRoleDefinitionId  = '0a9a7e1f-b9d0-4cc4-a60d-0319
 
 module storageTableDataContributorRoleAssignmentprocessor 'app/storage-Access.bicep' = {
   name: 'storageTableDataContributorRoleAssignmentprocessor'
-  scope: rg
+  
   params: {
     storageAccountName: storage.outputs.name
     roleDefinitionID: storageTableDataContributorRoleDefinitionId
@@ -234,7 +216,7 @@ module storageTableDataContributorRoleAssignmentprocessor 'app/storage-Access.bi
 
 module storageTableDataContributorRoleAssignmentUserIdentityprocessor 'app/storage-Access.bicep' = {
   name: 'storageTableDataContributorRoleAssignmentUserIdentityprocessor'
-  scope: rg
+  
   params: {
     storageAccountName: storage.outputs.name
     roleDefinitionID: storageTableDataContributorRoleDefinitionId
@@ -248,7 +230,7 @@ var cogRoleDefinitionId  = 'a97b65f3-24c7-4388-baec-2e87135dc908' // Cognitive S
 // Allow access from api to storage account using a managed identity
 module cogRoleAssignmentApi 'app/ai-Cog-Service-Access.bicep' = {
   name: 'cogRoleAssignmentapi'
-  scope: rg
+  
   params: {
     aiResourceName: ai.outputs.name
     roleDefinitionID: cogRoleDefinitionId
@@ -259,7 +241,7 @@ module cogRoleAssignmentApi 'app/ai-Cog-Service-Access.bicep' = {
 
 module cogRoleAssignmentUserIdentityApi 'app/ai-Cog-Service-Access.bicep' = {
   name: 'cogRoleAssignmentUserIdentityApi'
-  scope: rg
+  
   params: {
     aiResourceName: ai.outputs.name
     roleDefinitionID: cogRoleDefinitionId
@@ -271,7 +253,7 @@ module cogRoleAssignmentUserIdentityApi 'app/ai-Cog-Service-Access.bicep' = {
 // Virtual Network & private endpoint to blob storage
 module serviceVirtualNetwork 'app/vnet.bicep' =  if (!skipVnet) {
   name: 'serviceVirtualNetwork'
-  scope: rg
+  
   params: {
     location: location
     tags: tags
@@ -281,7 +263,7 @@ module serviceVirtualNetwork 'app/vnet.bicep' =  if (!skipVnet) {
 
 module storagePrivateEndpoint 'app/storage-PrivateEndpoint.bicep' = if (!skipVnet) {
   name: 'servicePrivateEndpoint'
-  scope: rg
+  
   params: {
     location: location
     tags: tags
@@ -294,7 +276,7 @@ module storagePrivateEndpoint 'app/storage-PrivateEndpoint.bicep' = if (!skipVne
 // Monitor application with Azure Monitor
 module monitoring './core/monitor/monitoring.bicep' = {
   name: 'monitoring'
-  scope: rg
+  
   params: {
     location: location
     tags: tags
@@ -309,7 +291,7 @@ var monitoringRoleDefinitionId = '3913510d-42f4-4e42-8a64-420c390055eb' // Monit
 // Allow access from api to application insights using a managed identity
 module appInsightsRoleAssignmentApi './core/monitor/appinsights-access.bicep' = {
   name: 'appInsightsRoleAssignmentapi'
-  scope: rg
+  
   params: {
     appInsightsName: monitoring.outputs.applicationInsightsName
     roleDefinitionID: monitoringRoleDefinitionId
