@@ -20,13 +20,13 @@ param apiUserAssignedIdentityName string = ''
 param applicationInsightsName string = ''
 param appServicePlanName string = ''
 param logAnalyticsName string = ''
-param resourceGroupName string = ''
+// param resourceGroupName string = ''
 param storageAccountName string = ''
 param vNetName string = ''
 param disableLocalAuth bool = true
 
-@allowed([ 'consumption', 'flexconsumption' ])
-param azFunctionHostingPlanType string = 'flexconsumption'
+// @allowed([ 'consumption', 'flexconsumption' ])
+// param azFunctionHostingPlanType string = 'flexconsumption'
 
 param openAiServiceName string = ''
  
@@ -306,5 +306,4 @@ output AZURE_TENANT_ID string = tenant().tenantId
 output SERVICE_API_NAME string = api.outputs.SERVICE_API_NAME
 output SERVICE_API_URI string = api.outputs.SERVICE_API_URI
 output AZURE_FUNCTION_APP_NAME string = api.outputs.SERVICE_API_NAME
-output RESOURCE_GROUP string = rg.name
 output AZURE_OPENAI_ENDPOINT string = ai.outputs.endpoint
